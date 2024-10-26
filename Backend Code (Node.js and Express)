@@ -1,0 +1,73 @@
+npm install express pg cors dotenv
+DB_USER=your_username
+DB_HOST=localhost
+DB_NAME=your_database
+DB_PASS=your_password
+DB_PORT=5432
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const { Pool } = require('pg');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASS,
+    port: process.env.DB_PORT,
+});
+
+// Routes for CRUD operations
+app.get('/products', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM products');
+        res.status(200).json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Error fetching products' });
+    }
+});
+
+app.post('/products', async (req, res) => {
+    const { name, description, price, quantity } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO products (name, description, price, quantity) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, description, price, quantity]
+        );
+        res.status(201).json({ message: 'Product added' });
+    } catch (err) {
+        res.status(500).json({ error: 'Error adding product' });
+    }
+});
+
+app.put('/products/:id', async (req, res) => {
+    const { id } = req.params;
+    const { name, description, price, quantity } = req.body;
+    try {
+        await pool.query(
+            'UPDATE products SET name = $1, description = $2, price = $3, quantity = $4 WHERE id = $5 RETURNING *',
+            [name, description, price, quantity, id]
+        );
+        res.status(200).json({ message: 'Product updated' });
+    } catch (err) {
+        res.status(500).json({ error: 'Error updating product' });
+    }
+});
+
+app.delete('/products/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM products WHERE id = $1 RETURNING *', [id]);
+        res.status(200).json({ message: 'Product deleted' });
+    } catch (err) {
+        res.status(500).json({ error: 'Error deleting product' });
+    }
+});
+
+app.listen(5000, () => {
+    console.log('Backend server is running on http://localhost:5000');
+});
